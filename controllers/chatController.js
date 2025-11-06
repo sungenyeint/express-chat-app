@@ -1,4 +1,5 @@
 import Chat from '../models/Chat.js';
+import Message from '../models/Message.js';
 
 export const accessChat = async (req, res) => {
   const { userId } = req.body; // user you want to chat with
@@ -22,7 +23,6 @@ export const fetchChats = async (req, res) => {
     .populate('users', '-password')
     .populate('latestMessage')
     .sort({ updatedAt: -1 });
-    console.log(chats[0]['users']);
   res.json(chats);
 };
 
@@ -49,4 +49,53 @@ export const createGroupChat = async (req, res) => {
 
   const fullChat = await Chat.findById(chat._id).populate('users', '-password').populate('groupAdmin', '-password');
   res.json(fullChat);
+};
+
+export const renameGroupChat = async (req, res) => {
+  const { chatId, newName } = req.body;
+  const chat = await Chat.findByIdAndUpdate(
+    chatId,
+    { chatName: newName },
+    { new: true }
+  ).populate('users', '-password').populate('groupAdmin', '-password');
+  if (!chat) return res.status(404).json({ message: 'Chat not found' });
+  res.json(chat);
+};
+
+// Add Members
+export const addToGroupChat = async (req, res) => {
+  const { chatId, userIds } = req.body; // array of user IDs
+  const chat = await Chat.findByIdAndUpdate(
+    chatId,
+    { $addToSet: { users: { $each: userIds } } },
+    { new: true }
+  ).populate('users', '-password').populate('groupAdmin', '-password');
+
+  if (!chat) return res.status(404).json({ message: 'Chat not found' });
+  res.json(chat);
+};
+
+// Remove Members
+export const removeFromGroupChat = async (req, res) => {
+  const { chatId, userIds } = req.body; // array of user IDs
+  const chat = await Chat.findByIdAndUpdate(
+    chatId,
+    { $pull: { users: { $in: userIds } } },
+    { new: true }
+  ).populate('users', '-password').populate('groupAdmin', '-password');
+
+  if (!chat) return res.status(404).json({ message: 'Chat not found' });
+
+  // Optional: delete messages of removed users
+  await Message.deleteMany({ chat: chatId, sender: { $in: userIds } });
+
+  res.json(chat);
+};
+
+export const deleteChat = async (req, res) => {
+  const { chatId } = req.body;
+  const chat = await Chat.findByIdAndDelete(chatId);
+  if (!chat) return res.status(404).json({ message: 'Chat not found' });
+  await Message.deleteMany({ chat: chatId });
+  res.json({ message: 'Chat deleted' });
 };

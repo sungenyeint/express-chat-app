@@ -35,8 +35,14 @@ io.on('connection', (socket) => {
 
   socket.on('join chat', (chatId) => socket.join(chatId));
 
-  socket.on('typing', (chatId) => socket.in(chatId).emit('typing', chatId));
-  socket.on('stop typing', (chatId) => socket.in(chatId).emit('stop typing', chatId));
+  socket.on('typing', ({chatId, userName }) => {
+    console.log(`${userName} is typing in chat ${chatId}`);
+    socket.in(chatId).emit('typing', { chatId, userName });
+  });
+
+  socket.on('stop typing', ({chatId, userName }) => {
+    socket.in(chatId).emit('stop typing', { chatId, userName });
+  });
 
   socket.on('new message', (msg) => {
     io.to(msg.chat._id).emit('message received', msg);
